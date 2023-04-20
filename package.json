@@ -1,11 +1,13 @@
 {
   "name": "gpt",
   "version": "1.0.0",
+  "type": "module",
   "description": "Code snippets written by GPT",
   "main": "main.ts",
   "scripts": {
     "build": "tsc",
     "start": "node ./dist/main.js",
+    "start-server": "node ./dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

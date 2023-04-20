@@ -1,9 +1,9 @@
 // main.ts
-import { HttpRequestHedging } from './request-hedging';
+import { HttpRequestHedging } from './httpRequestHedging.js';
 
 async function main() {
   try {
-    const response = await HttpRequestHedging.fetchWithHedging('http://localhost:3000/test?delay=100');
+    const response = await HttpRequestHedging.fetchWithHedging('http://localhost:3000/delayed-response/500');
     const body = await response.text();
     console.log('Response:', body);
   } catch (error) {
