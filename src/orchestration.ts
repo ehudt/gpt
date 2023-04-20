@@ -31,7 +31,7 @@ async function initializeDatabase() {
 
     try {
         await dynamoDB.createTable(params).promise();
-    } catch (err) {
+    } catch (err: any) {
         if (err.code !== 'ResourceInUseException') {
             console.error('Error initializing DynamoDB table:', err);
             throw err;
@@ -42,40 +42,40 @@ async function initializeDatabase() {
 initializeDatabase();
 
 abstract class PaymentStep {
-    abstract async execute(data: StepData, idempotencyKey: string): Promise<void>;
+    abstract execute(data: StepData, idempotencyKey: string): Promise<void>;
 }
 
 class BankAccountVerification extends PaymentStep {
-    async execute(data: StepData, idempotencyKey: string): Promise<void> {
+    async execute(_data: StepData, _idempotencyKey: string): Promise<void> {
         // Implement the special verification method for bank account using the idempotency key
     }
 }
 
 class CreditCardVerification extends PaymentStep {
-    async execute(data: StepData, idempotencyKey: string): Promise<void> {
+    async execute(_data: StepData, _idempotencyKey: string): Promise<void> {
         // Implement the special verification method for bank account using the idempotency key
     }
 }
 
 class BankAccountProcessing extends PaymentStep {
-    async execute(data: StepData, idempotencyKey: string): Promise<void> {
+    async execute(_data: StepData, _idempotencyKey: string): Promise<void> {
         // Implement the special verification method for bank account using the idempotency key
     }
 }
 
 class CreditCardProcessing extends PaymentStep {
-    async execute(data: StepData, idempotencyKey: string): Promise<void> {
+    async execute(_data: StepData, _idempotencyKey: string): Promise<void> {
         // Implement the special verification method for bank account using the idempotency key
     }
 }
 
 abstract class PaymentMethod {
-    constructor(protected steps: PaymentStep[]) {}
+    constructor(public steps: PaymentStep[]) {}
 
-    async executeSteps(data: StepData): Promise<StepResult> {
+    async executeSteps(data: StepData, idempotencyKey: string): Promise<StepResult> {
         const results: StepResult = {};
         for (const step of this.steps) {
-            const stepResult = await step.execute(data);
+            const stepResult = await step.execute(data, idempotencyKey);
             results[step.constructor.name] = stepResult;
         }
         return results;
@@ -87,7 +87,7 @@ class BankAccountPayment extends PaymentMethod {
     constructor() {
         super([new BankAccountVerification(), new BankAccountProcessing()]);
     }
-  
+
     getRequiredFields(): string[] {
         return ['account_number', 'routing_number', 'full_name'];
     }
@@ -97,7 +97,7 @@ class CreditCardPayment extends PaymentMethod {
     constructor() {
         super([new CreditCardVerification(), new CreditCardProcessing()]);
     }
-  
+
     getRequiredFields(): string[] {
         return ['card_number', 'billing_address', 'cardholder_name'];
     }
@@ -190,7 +190,7 @@ class PaymentWorkflow {
         const data = await docClient.query(params).promise();
         const items = data.Items;
 
-        if (items.length === 0) {
+        if (!items || items.length === 0) {
             throw new Error(`Unknown payment method ID: ${paymentId}`);
         }
 
@@ -210,8 +210,9 @@ class PaymentWorkflow {
         for (const step of paymentMethod.steps) {
             if (startNextStep || step.constructor.name === stepName) {
                 startNextStep = true;
-                const { result, success } = await this.executeStepWithRetry(step, stepData);
-                await this.persistStepResult(paymentId, step.constructor.name, stepData, result, success);
+                const idempotencyKey = `${paymentId}_${step.constructor.name}`;
+                const { result, success } = await this.executeStepWithRetry(step, stepData, idempotencyKey);
+                await this.persistStepResult(paymentId, step.constructor.name, stepData, result, success ? "success" : "failed");
                 if (!success) {
                     break;
                 }

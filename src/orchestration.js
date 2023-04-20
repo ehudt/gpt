@@ -69,10 +69,10 @@ class PaymentMethod {
         this.steps = steps;
     }
 
-    async executeSteps(data) {
+    async executeSteps(data, idempotencyKey) {
         const results = {};
         for (const step of this.steps) {
-            const stepResult = await step.execute(data);
+            const stepResult = await step.execute(data, idempotencyKey);
             results[step.constructor.name] = stepResult;
         }
         return results;
@@ -86,7 +86,7 @@ class BankAccountPayment extends PaymentMethod {
     constructor() {
         super([new BankAccountVerification(), new BankAccountProcessing()]);
     }
-  
+
     getRequiredFields() {
         return ['account_number', 'routing_number', 'full_name'];
     }
@@ -96,7 +96,7 @@ class CreditCardPayment extends PaymentMethod {
     constructor() {
         super([new CreditCardVerification(), new CreditCardProcessing()]);
     }
-  
+
     getRequiredFields() {
         return ['card_number', 'billing_address', 'cardholder_name'];
     }
@@ -205,13 +205,14 @@ class PaymentWorkflow {
         for (const step of paymentMethod.steps) {
             if (startNextStep || step.constructor.name === stepName) {
                 startNextStep = true;
-                const { result, success } = await this.executeStepWithRetry(step, stepData);
+                const idempotencyKey = `${paymentId}_${step.constructor.name}`;
+                const { result, success } = await this.executeStepWithRetry(step, stepData, idempotencyKey);
                 await this.persistStepResult(paymentId, step.constructor.name, stepData, result, success);
                 if (!success) {
                     break;
                 }
             }
-       
+
         }
     }
 }
