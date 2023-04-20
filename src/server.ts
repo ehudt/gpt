@@ -4,21 +4,13 @@ import express from 'express';
 const app = express();
 const port = 3000;
 
-app.get('/test', (req, res) => {
-  const delay = parseInt(req.query.delay as string) || 0;
+app.get('/tail-latency', (req, res) => {
+  const randomValue = Math.random();
+  const delay = randomValue < 0.5 ? 45 : 1000; // 50ms half of the time, 1000ms the other half
+
   setTimeout(() => {
-    res.send(`Responding after ${delay}ms`);
+    res.send(`Response after ${delay}ms delay`);
   }, delay);
-});
-
-app.get('/delayed-response/:delay', (req, res) => {
-  const baseDelay = parseInt(req.params.delay, 10);
-  const randomDelay = Math.floor(Math.random() * 300); // Generate a random delay between 0ms and 300ms
-  const totalDelay = Math.max(baseDelay + randomDelay, 0); // Ensure the total delay is non-negative
-
-  setTimeout(() => {
-    res.send(`Response after ${totalDelay}ms delay`);
-  }, totalDelay);
 });
 
 app.listen(port, () => {
