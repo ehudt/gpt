@@ -1,65 +1,45 @@
 // httpRequestHedging.ts
+import fetch, { RequestInit, Response } from 'node-fetch';
+
 export class HttpRequestHedging {
   private static readonly HEDGING_TIMEOUT = 50;
   private static readonly HEDGING_COUNT = 3;
 
   public static async fetchWithHedging(uri: string, options?: RequestInit): Promise<Response> {
-    const requestPromises: Promise<Response>[] = [];
+    const abortControllers: AbortController[] = [];
 
-    const requestWrapper = (resolve: (response: Response) => void, reject: (reason: any) => void) => {
-      fetch(uri, options)
-        .then(response => {
-          resolve(response);
-        })
-        .catch(err => {
-          reject(err);
-        });
+    const sendRequest = async (signal: AbortSignal): Promise<Response> => {
+      return fetch(uri, { ...options, signal });
     };
 
-    return new Promise((resolve, reject) => {
-      const firstPromise = new Promise(requestWrapper);
-      requestPromises.push(firstPromise);
+    const createDelayedRequest = (delay: number): Promise<Response> =>
+      new Promise(async (resolve, reject) => {
+        const controller = new AbortController();
+        abortControllers.push(controller);
 
-      const hedgingTimeout = setTimeout(() => {
-        if (requestPromises.length < HttpRequestHedging.HEDGING_COUNT) {
-          for (let i = requestPromises.length; i < HttpRequestHedging.HEDGING_COUNT; i++) {
-            requestPromises.push(new Promise(requestWrapper));
+        setTimeout(async () => {
+          try {
+            const response = await sendRequest(controller.signal);
+            resolve(response);
+          } catch (err) {
+            reject(err);
           }
-        }
-      }, HttpRequestHedging.HEDGING_TIMEOUT);
+        }, delay);
+      });
 
-      firstPromise
-        .then(response => {
-          clearTimeout(hedgingTimeout);
-          resolve(response);
-        })
-        .catch(err => {
-          clearTimeout(hedgingTimeout);
-          reject(err);
-        });
+    const requestPromises: Promise<Response>[] = [];
+    for (let i = 0; i < HttpRequestHedging.HEDGING_COUNT; i++) {
+      const delay = i === 0 ? 0 : HttpRequestHedging.HEDGING_TIMEOUT;
+      requestPromises.push(createDelayedRequest(delay));
+    }
 
-      Promise.race(requestPromises)
-        .then(response => {
-          resolve(response);
-        })
-        .catch(err => {
-          reject(err);
-        });
-    });
+    const firstResponse = await Promise.race(requestPromises);
+
+    // Abort ongoing requests
+    for (const controller of abortControllers) {
+      controller.abort();
+    }
+
+    return firstResponse;
   }
 }
-    
-// main.ts
-import { HttpRequestHedging } from './httpRequestHedging';
-
-async function main() {
-  try {
-    const response = await HttpRequestHedging.fetchWithHedging('https://api.example.com/data');
-    const data = await response.json();
-    console.log(data);
-  } catch (error) {
-    console.error(`Failed to fetch data: ${error}`);
-  }
-}
-
-main();

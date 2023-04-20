@@ -1,0 +1,22 @@
+{
+  "name": "gpt",
+  "version": "1.0.0",
+  "description": "Code snippets written by GPT",
+  "main": "main.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "node-fetch": "3.3.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ehudt/gpt.git"
+  },
+  "author": "Ehud Tamir",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/ehudt/gpt/issues"
+  },
+  "homepage": "https://github.com/ehudt/gpt#readme"
+}
