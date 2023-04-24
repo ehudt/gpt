@@ -42,6 +42,15 @@ export class HttpRequestHedging {
     for (const controller of abortControllers) {
       controller.abort();
     }
+    // Wait for remaining promises to finish, suppressing AbortErrors
+    await Promise.all(requestPromises.map(p => p.catch(err => {
+      if (err.name === 'AbortError') {
+        console.log('Request aborted.');
+      } else {
+        throw err;
+      }
+    })));
+
 
     return firstResponse;
   }
